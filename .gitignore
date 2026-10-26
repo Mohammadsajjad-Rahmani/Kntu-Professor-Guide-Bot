@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.db
+*.sqlite3
+data/*.csv
+!data/sample_professors.csv
