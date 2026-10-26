@@ -7,7 +7,7 @@ import logging
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramNetworkError
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
@@ -43,7 +43,31 @@ from bot.middlewares import BanMiddleware
 from bot.services.access import MANAGE, MODERATE, faculties_for, is_owner, is_staff, review_scope
 from bot.services.publisher import publish_pending
 
+try:
+    from aiohttp_socks import ProxyError
+except ImportError:  # no proxy library installed: nothing to retry
+    class ProxyError(Exception):
+        pass
+
 log = logging.getLogger(__name__)
+
+
+class ResilientSession(AiohttpSession):
+    """Retries when the proxy fails before reaching Telegram (e.g. PythonAnywhere's 503).
+
+    The request never reached Telegram in that case, so retrying cannot send anything twice.
+    """
+
+    async def make_request(self, bot, method, timeout=None):
+        last: Exception | None = None
+        for attempt in range(6):
+            try:
+                return await super().make_request(bot, method, timeout)
+            except ProxyError as e:
+                last = e
+                log.warning("Proxy error (%s), retry %s/6", e, attempt + 1)
+                await asyncio.sleep(1 + attempt)
+        raise TelegramNetworkError(method=method, message=f"ProxyError: {last}") from last
 
 dp = Dispatcher()
 dp.include_router(review.router)
@@ -319,7 +343,7 @@ async def main() -> None:
         raise SystemExit("BOT_TOKEN is not set. Copy .env.example to .env and fill it in.")
     logging.basicConfig(level=logging.INFO)
     await init_db()
-    session = AiohttpSession(proxy=settings.proxy_url or None)
+    session = ResilientSession(proxy=settings.proxy_url or None)
     bot = Bot(settings.bot_token, session=session)
     await set_commands(bot)
     await dp.start_polling(bot)

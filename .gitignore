@@ -9,3 +9,4 @@ data/*.csv
 *.db-journal
 .env.*
 !.env.example
+.DEPLOY.md
