@@ -1,0 +1,5 @@
+aiogram>=3.13,<4
+SQLAlchemy[asyncio]>=2.0,<3
+aiosqlite>=0.20
+python-dotenv>=1.0
+rapidfuzz>=3.9

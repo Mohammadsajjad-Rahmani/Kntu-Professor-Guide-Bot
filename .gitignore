@@ -6,3 +6,6 @@ __pycache__/
 *.sqlite3
 data/*.csv
 !data/sample_professors.csv
+*.db-journal
+.env.*
+!.env.example
